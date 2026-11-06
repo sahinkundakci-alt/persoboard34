@@ -1,0 +1,2095 @@
+```html
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Personalist Taktik & 3B Animasyon Board - M. Şahin Kundakcı</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Montserrat:wght@800;900&family=Inter:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        :root {
+            --pill-bg: rgba(15, 23, 42, 0.92);
+            --pill-border: rgba(255, 255, 255, 0.18);
+            --accent-orange: #f97316;
+            --accent-blue: #3b82f6;
+            --ui-scale: 0.90;
+            --top-safe: 8px;
+            --bottom-safe: 52px; /* Lifted above Android taskbar by default, adjustable 0-95px */
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+            touch-action: none;
+        }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #0b1120;
+            font-family: 'Inter', sans-serif;
+            color: #f8fafc;
+            position: fixed;
+            inset: 0;
+        }
+
+        /* ZERO-PARALLAX FULL-SCREEN CANVAS */
+        #stage-container {
+            position: fixed;
+            inset: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background: #8dc6df;
+        }
+
+        #board-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: block;
+            cursor: crosshair;
+            z-index: 10;
+        }
+
+        /* ULTRA-COMPACT, COLLAPSIBLE & DRAGGABLE FLOATING PILLS */
+        .floating-pill {
+            position: fixed;
+            z-index: 120;
+            background: var(--pill-bg);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1.5px solid var(--pill-border);
+            border-radius: 999px;
+            box-shadow: 0 8px 26px rgba(0, 0, 0, 0.55), inset 0 1px 1px rgba(255, 255, 255, 0.15);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 7px;
+            transition: opacity 0.16s ease, box-shadow 0.16s ease;
+            max-width: 97vw;
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+        .floating-pill::-webkit-scrollbar { display: none; }
+
+        .floating-pill .pill-body {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex-wrap: nowrap;
+        }
+
+        .floating-pill.collapsed .pill-body {
+            display: none !important;
+        }
+
+        .floating-pill.collapsed {
+            padding: 4px 6px;
+            border-color: rgba(249, 115, 22, 0.65);
+            box-shadow: 0 6px 20px rgba(249, 115, 22, 0.35);
+        }
+
+        /* Auto-translucent while drawing on the court so UI never blocks lines */
+        body.is-interacting .floating-pill {
+            opacity: 0.12 !important;
+            pointer-events: none !important;
+        }
+
+        #pill-top {
+            top: var(--top-safe);
+            left: 50%;
+            transform: translateX(-50%) scale(var(--ui-scale));
+            transform-origin: top center;
+        }
+
+        #pill-bottom {
+            bottom: var(--bottom-safe);
+            left: 50%;
+            transform: translateX(-50%) scale(var(--ui-scale));
+            transform-origin: bottom center;
+        }
+
+        /* Stacked PER / SONAL / IST Drag Handle */
+        .personalist-badge {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(145deg, #1e293b, #0f172a);
+            border: 1.5px solid #475569;
+            border-radius: 7px;
+            padding: 2px 5px;
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 900;
+            line-height: 0.85;
+            color: #fff;
+            flex-shrink: 0;
+            cursor: grab;
+        }
+        .personalist-badge:active { cursor: grabbing; }
+        .personalist-badge .r1 { font-size: 8px; letter-spacing: 1.6px; }
+        .personalist-badge .r2 { font-size: 6px; letter-spacing: 0.8px; color: #cbd5e1; margin: 1px 0; }
+        .personalist-badge .r3 { font-size: 9.5px; letter-spacing: 1.8px; color: var(--accent-orange); }
+
+        /* Collapse / Minimize Toggle Button */
+        .collapse-btn {
+            width: 24px;
+            height: 24px;
+            border-radius: 999px;
+            background: rgba(249, 115, 22, 0.18);
+            border: 1px solid rgba(249, 115, 22, 0.55);
+            color: #fb923c;
+            font-size: 10px;
+            font-weight: 900;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: all 0.14s;
+        }
+        .collapse-btn:hover {
+            background: var(--accent-orange);
+            color: #fff;
+        }
+
+        .signature-text {
+            font-family: 'Caveat', cursive;
+            font-size: 16px;
+            font-weight: 700;
+            color: #ffffff;
+            text-shadow: 0 2px 6px rgba(249, 115, 22, 0.45);
+            white-space: nowrap;
+            padding: 0 4px;
+            flex-shrink: 0;
+        }
+
+        /* Compact Pill Buttons */
+        .pill-btn {
+            height: 28px;
+            min-width: 28px;
+            padding: 0 8px;
+            border-radius: 999px;
+            background: rgba(30, 41, 59, 0.92);
+            border: 1px solid rgba(255, 255, 255, 0.11);
+            color: #e2e8f0;
+            font-size: 10px;
+            font-weight: 800;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            cursor: pointer;
+            transition: all 0.12s ease;
+            flex-shrink: 0;
+            white-space: nowrap;
+        }
+        .pill-btn:hover { background: rgba(51, 65, 85, 0.95); }
+        .pill-btn:active { transform: scale(0.93); }
+        .pill-btn.active {
+            background: linear-gradient(135deg, #f97316 0%, #c2410c 100%);
+            color: #ffffff;
+            border-color: #fdba74;
+            box-shadow: 0 0 10px rgba(249, 115, 22, 0.55);
+        }
+        .pill-btn.active-blue {
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+            color: #ffffff;
+            border-color: #93c5fd;
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.55);
+        }
+        .pill-btn.active-emerald {
+            background: linear-gradient(135deg, #10b981 0%, #047857 100%);
+            color: #ffffff;
+            border-color: #6ee7b7;
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.55);
+        }
+
+        .pill-divider {
+            width: 1px;
+            height: 18px;
+            background: rgba(255, 255, 255, 0.16);
+            margin: 0 1px;
+            flex-shrink: 0;
+        }
+
+        .spawn-dot {
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            font-size: 9px;
+            font-weight: 900;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            border: 1.8px solid #ffffff;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.45);
+            flex-shrink: 0;
+            transition: transform 0.12s;
+        }
+        .spawn-dot:active { transform: scale(0.88); }
+
+        /* SIZING & TASKBAR OFFSET POPOVER */
+        #settings-popover {
+            position: fixed;
+            top: 52px;
+            right: 14px;
+            width: 280px;
+            background: rgba(15, 23, 42, 0.96);
+            backdrop-filter: blur(16px);
+            border: 1.5px solid #f97316;
+            border-radius: 16px;
+            padding: 12px;
+            z-index: 260;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.85);
+            display: none;
+        }
+
+        /* Subtle Status Pill Banner */
+        #status-banner {
+            position: fixed;
+            top: calc(var(--top-safe) + 38px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(15, 23, 42, 0.84);
+            border: 1px solid rgba(249, 115, 22, 0.45);
+            color: #f8fafc;
+            padding: 2px 11px;
+            border-radius: 999px;
+            font-size: 9.5px;
+            font-weight: 700;
+            z-index: 80;
+            pointer-events: none;
+            white-space: nowrap;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.35);
+            transition: opacity 0.25s;
+        }
+        body.is-interacting #status-banner { opacity: 0; }
+
+        input[type="range"].cfg-slider {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 5px;
+            background: #334155;
+            border-radius: 5px;
+            outline: none;
+        }
+        input[type="range"].cfg-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            background: var(--accent-orange);
+            border: 2px solid #fff;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+<!-- ===================================================================
+     DIRECT 2D CANVAS STAGE (100% Zero Touch Offset in 3D & 2D Modes)
+     =================================================================== -->
+<div id="stage-container">
+    <canvas id="board-canvas"></canvas>
+</div>
+
+<!-- ===================================================================
+     TOP ULTRA-COMPACT FLOATING PILL (Draggable & Minimizable)
+     =================================================================== -->
+<div id="pill-top" class="floating-pill">
+    <!-- Drag Handle -->
+    <div id="top-drag-handle" class="personalist-badge" title="Üst Menüyü Sürükleyin">
+        <span class="r1">PER</span>
+        <span class="r2">SONAL</span>
+        <span class="r3">IST</span>
+    </div>
+
+    <!-- Single-Tap Collapse / Expand Button -->
+    <button onclick="togglePillCollapse('pill-top', 'top-collapse-icon')" class="collapse-btn" title="Üst Menüyü Küçült / Aç">
+        <i id="top-collapse-icon" class="fa-solid fa-minus"></i>
+    </button>
+
+    <!-- Collapsible Content Body -->
+    <div class="pill-body">
+        <button id="btn-mode-3d" onclick="setBoardMode('3d')" class="pill-btn active" title="1. Görsel: Gölgeli 3B Pota, Kuka ve Perspektif Animasyon Sahnesi">
+            <i class="fa-solid fa-cube"></i>
+            <span>3B ANİMASYON</span>
+        </button>
+
+        <button id="btn-mode-2d" onclick="setBoardMode('2d')" class="pill-btn" title="2. Görsel: Tam Ekran Pratik Maç İçi 2B Taktik Board">
+            <i class="fa-solid fa-chalkboard"></i>
+            <span>2B MAÇ BOARD</span>
+        </button>
+
+        <div class="pill-divider"></div>
+
+        <button id="btn-orient" onclick="toggleCourtOrientation()" class="pill-btn" title="Sahayı Yatay veya Dikey Çevir">
+            <i class="fa-solid fa-arrows-left-right" id="orient-icon"></i>
+            <span id="orient-lbl">YATAY</span>
+        </button>
+
+        <button onclick="cycleCourtTheme()" class="pill-btn" title="Parke ve Renk Temasını Değiştir">
+            <i class="fa-solid fa-palette text-orange-400"></i>
+            <span id="theme-lbl" class="hidden md:inline">PARKE</span>
+        </button>
+
+        <div class="pill-divider"></div>
+
+        <button onclick="loadSlalomDrillPreset()" class="pill-btn text-sky-300 border-sky-500/40" title="1. Fotoğraftaki Kuka Slalom Dripling Drilini Kur">
+            <i class="fa-solid fa-person-running"></i>
+            <span>SLALOM DRİL</span>
+        </button>
+
+        <button onclick="load5v5MatchPreset()" class="pill-btn text-amber-300 border-amber-500/40" title="5'e 5 Maç İçi Dizilişi Kur">
+            <i class="fa-solid fa-users"></i>
+            <span>5v5 SET</span>
+        </button>
+
+        <div class="pill-divider"></div>
+
+        <button onclick="undoLastAction()" class="pill-btn" title="Son Çizimi Geri Al">
+            <i class="fa-solid fa-rotate-left"></i>
+        </button>
+
+        <button onclick="clearDrawingsAndRoutes()" class="pill-btn text-rose-400" title="Çizimleri ve Rotaları Temizle">
+            <i class="fa-solid fa-broom"></i>
+        </button>
+
+        <button id="btn-fullscreen" onclick="toggleImmersiveFullscreen()" class="pill-btn active-emerald" title="Tam Ekran Modu (Taskbar Gizle)">
+            <i class="fa-solid fa-expand" id="fs-icon"></i>
+            <span class="hidden sm:inline">TAM EKRAN</span>
+        </button>
+
+        <button onclick="toggleSettingsPopover()" class="pill-btn active-blue" title="Menü Boyutu, Taş Boyutu ve Taskbar Yüksekliği">
+            <i class="fa-solid fa-sliders"></i>
+            <span class="hidden sm:inline">BOYUT</span>
+        </button>
+
+        <div class="signature-text hidden xl:block">M. Şahin Kundakcı</div>
+    </div>
+</div>
+
+<!-- STATUS BANNER -->
+<div id="status-banner">
+    <i class="fa-solid fa-basketball text-orange-400 mr-1"></i>
+    <span id="status-text">Menüleri solundaki [-] tuşuyla küçültebilir veya sürükleyebilirsiniz • P.R ile yön kırdığınız an otomatik Perde+Devrilme çizilir!</span>
+</div>
+
+<!-- SIZING & TASKBAR CLEARANCE POPOVER -->
+<div id="settings-popover">
+    <div class="flex items-center justify-between border-b border-slate-700 pb-2 mb-2.5">
+        <span class="text-[11px] font-black text-orange-400 uppercase tracking-wider">
+            <i class="fa-solid fa-sliders mr-1"></i>Boyut & Görev Çubuğu Ayarı
+        </span>
+        <button onclick="toggleSettingsPopover()" class="text-slate-400 hover:text-white text-sm px-1">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+    </div>
+
+    <div class="space-y-2.5 text-[11px]">
+        <div>
+            <div class="flex justify-between font-bold text-slate-300 mb-0.5">
+                <span>Menü Bar Boyutu (Küçült/Büyüt):</span>
+                <span id="lbl-ui-scale" class="text-orange-400 font-black">90%</span>
+            </div>
+            <input type="range" min="0.55" max="1.25" step="0.05" value="0.90" class="cfg-slider" oninput="updateUiScale(this.value)">
+        </div>
+
+        <div>
+            <div class="flex justify-between font-bold text-slate-300 mb-0.5">
+                <span>Oyuncu, Kuka & Top Boyutu:</span>
+                <span id="lbl-token-scale" class="text-orange-400 font-black">100%</span>
+            </div>
+            <input type="range" min="0.55" max="1.45" step="0.05" value="1" class="cfg-slider" oninput="updateTokenScale(this.value)">
+        </div>
+
+        <div>
+            <div class="flex justify-between font-bold text-slate-300 mb-0.5">
+                <span>Çizgi & Ok Kalınlığı:</span>
+                <span id="lbl-stroke-scale" class="text-orange-400 font-black">100%</span>
+            </div>
+            <input type="range" min="0.60" max="1.60" step="0.05" value="1" class="cfg-slider" oninput="updateStrokeScale(this.value)">
+        </div>
+
+        <div>
+            <div class="flex justify-between font-bold text-slate-300 mb-0.5">
+                <span>Alt Menü Taskbar Üstü Boşluk:</span>
+                <span id="lbl-bot-safe" class="text-orange-400 font-black">52px</span>
+            </div>
+            <input type="range" min="6" max="96" step="2" value="52" class="cfg-slider" oninput="updateBottomSafe(this.value)">
+        </div>
+
+        <div class="pt-1 flex justify-between gap-2">
+            <button onclick="resetPillPositions()" class="pill-btn flex-1 justify-center text-[10px]">
+                <i class="fa-solid fa-arrows-to-dot"></i> Menüleri Ortala
+            </button>
+            <button onclick="collapseBothPills()" class="pill-btn active flex-1 justify-center text-[10px]">
+                <i class="fa-solid fa-compress"></i> İkisini Küçült
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ===================================================================
+     BOTTOM ULTRA-COMPACT FLOATING PILL (Draggable & Minimizable)
+     =================================================================== -->
+<div id="pill-bottom" class="floating-pill">
+    <!-- Drag Handle for Bottom Pill -->
+    <div id="bot-drag-handle" class="px-1.5 py-0.5 rounded-full bg-slate-800/90 border border-slate-600 text-slate-300 cursor-grab flex items-center gap-1 text-[9.5px] font-black" title="Alt Menüyü İstediğiniz Yere Sürükleyin">
+        <i class="fa-solid fa-grip-vertical text-orange-400"></i>
+        <span>ARAÇ</span>
+    </div>
+
+    <!-- Single-Tap Collapse / Expand Button -->
+    <button onclick="togglePillCollapse('pill-bottom', 'bot-collapse-icon')" class="collapse-btn" title="Alt Menüyü Küçült / Aç">
+        <i id="bot-collapse-icon" class="fa-solid fa-minus"></i>
+    </button>
+
+    <!-- Collapsible Tools Body -->
+    <div class="pill-body">
+        <button class="pill-btn" data-tool="move" onclick="selectTool('move')" title="Oyuncu, Kuka ve Topları Taşı">
+            <i class="fa-solid fa-arrows-up-down-left-right"></i>
+            <span>TAŞI</span>
+        </button>
+
+        <button class="pill-btn active" data-tool="pr" onclick="selectTool('pr')" title="Akıllı Pick & Roll: Çizgiyi çekip yön değiştirdiğiniz anda otomatik Perde (T) koyar ve Devrilme (Roll) okuna dönüşür!">
+            <i class="fa-solid fa-code-branch text-amber-300"></i>
+            <span>P.R</span>
+        </button>
+
+        <button class="pill-btn" data-tool="cut" onclick="selectTool('cut')" title="Koşu / Kat Oku">
+            <i class="fa-solid fa-arrow-right-long"></i>
+            <span>KOŞU</span>
+        </button>
+
+        <button class="pill-btn" data-tool="dribble" onclick="selectTool('dribble')" title="Kıvrımlı Dripling Oku">
+            <i class="fa-solid fa-wave-square"></i>
+            <span>DRİPLİNG</span>
+        </button>
+
+        <button class="pill-btn" data-tool="pass" onclick="selectTool('pass')" title="Pas Oku (Kesikli)">
+            <i class="fa-solid fa-ellipsis"></i>
+            <span>PAS</span>
+        </button>
+
+        <button class="pill-btn" data-tool="screen" onclick="selectTool('screen')" title="Perdeleme (Screen)">
+            <span class="font-black text-xs">┫</span>
+            <span>PERDE</span>
+        </button>
+
+        <button class="pill-btn" data-tool="free" onclick="selectTool('free')" title="Serbest Çizim">
+            <i class="fa-solid fa-pen"></i>
+        </button>
+
+        <button class="pill-btn" data-tool="erase" onclick="selectTool('erase')" title="Silgi (Çizime veya Oyuncu/Kukaya Dokunarak Sil)">
+            <i class="fa-solid fa-eraser text-rose-400"></i>
+        </button>
+
+        <div class="pill-divider"></div>
+
+        <!-- Compact Spawners -->
+        <div onclick="spawnPlayer('blue')" class="spawn-dot" style="background:#4a78b5;" title="Mavi Oyuncu Ekle">+M</div>
+        <div onclick="spawnPlayer('orange')" class="spawn-dot" style="background:#f3b144; color:#0f172a;" title="Sarı/Turuncu Oyuncu Ekle">+T</div>
+        <div onclick="spawnPlayer('red')" class="spawn-dot" style="background:#e11d48;" title="Kırmızı Oyuncu Ekle">+K</div>
+
+        <button onclick="spawnCone('blue')" class="pill-btn !px-1.5" title="Mavi 3B Kuka Ekle">
+            <i class="fa-solid fa-caret-up text-sky-400 text-sm"></i>
+            <span class="text-sky-300 text-[9px]">KUKA</span>
+        </button>
+
+        <button onclick="spawnCone('orange')" class="pill-btn !px-1.5" title="Turuncu 3B Kuka Ekle">
+            <i class="fa-solid fa-caret-up text-orange-400 text-sm"></i>
+            <span class="text-orange-300 text-[9px]">KUKA</span>
+        </button>
+
+        <div onclick="spawnBall()" class="spawn-dot" style="background:#ea580c; border-color:#fed7aa;" title="Basketbol Topu Ekle">
+            <i class="fa-solid fa-basketball text-amber-950 text-[10px]"></i>
+        </div>
+
+        <div class="pill-divider"></div>
+
+        <!-- Game-Speed Animation Controls -->
+        <button id="btn-rec-route" onclick="toggleRouteRecording()" class="pill-btn" title="Oyuncuyu Sürükleyerek Animasyon Rotası Kaydet">
+            <i class="fa-solid fa-route text-amber-400"></i>
+            <span>ROTA</span>
+        </button>
+
+        <button id="btn-wavy-mode" onclick="toggleRouteWavyMode()" class="pill-btn active-blue !px-1.5" title="Kıvrımlı Dripling / Düz Koşu">
+            <i class="fa-solid fa-water"></i>
+            <span id="lbl-wavy">KIVRIM</span>
+        </button>
+
+        <button id="btn-play" onclick="toggleAnimationPlay()" class="pill-btn active-emerald" title="Animasyonu Maç Hızında Oynat / Durdur">
+            <i class="fa-solid fa-play" id="play-icon"></i>
+            <span id="play-lbl">OYNAT</span>
+        </button>
+
+        <button onclick="resetAnimationPositions()" class="pill-btn !px-1.5" title="Oyuncuları Başlangıç Noktasına Döndür">
+            <i class="fa-solid fa-backward-step"></i>
+        </button>
+
+        <button onclick="cycleAnimationSpeed()" class="pill-btn !bg-slate-900 border-orange-500/50 text-orange-400" title="Animasyon Hızını Değiştir">
+            <i class="fa-solid fa-gauge-high"></i>
+            <span id="lbl-speed">2.0x MAÇ</span>
+        </button>
+    </div>
+</div>
+
+<script>
+    /********************************************************************
+     * 1. CORE STATE & ZERO-OFFSET NORMALIZED COORDINATE SYSTEM
+     ********************************************************************/
+    const canvas = document.getElementById('board-canvas');
+    const ctx    = canvas.getContext('2d');
+
+    const state = {
+        boardMode: '3d',           // '3d' (Image 1 Perspective Scene) | '2d' (Image 2 Fullscreen Board)
+        orientation: 'horizontal', // 'horizontal' | 'vertical'
+        manualOrient: false,
+        themeIdx: 0,
+        themes2D: [
+            { name: 'PARKE',       woodA: '#d89e63', woodB: '#cc8f52', key: '#c17f42', apron: '#1e293b', lines: '#1e293b', ring: '#f97316' },
+            { name: 'MASTERCLASS', woodA: '#e0b379', woodB: '#d19e61', key: '#1e293b', apron: '#0f172a', lines: '#ffffff', ring: '#f97316' },
+            { name: 'LAKERS',      woodA: '#f2ca8a', woodB: '#e5b873', key: '#552583', apron: '#552583', lines: '#ffffff', ring: '#FDB927' },
+            { name: 'BULLS',       woodA: '#dfa86b', woodB: '#ce9454', key: '#CE1141', apron: '#111111', lines: '#ffffff', ring: '#111111' }
+        ],
+        tool: 'pr',                // 'move', 'pr', 'cut', 'dribble', 'pass', 'screen', 'free', 'erase'
+        tokenScale: 1.0,
+        strokeScale: 1.0,
+
+        entities: [],
+        draggingEntity: null,
+        dragStartUV: null,
+        nextNum: { blue: 1, orange: 1, red: 1 },
+
+        strokes: [],
+        activeStroke: null,
+        pendingPrScreenPoint: null,
+
+        isRecordingRoute: false,
+        routeWavyStyle: true,
+        isPlaying: false,
+        animFrameId: null,
+        speedIdx: 3,
+        speeds: [
+            { mult: 0.6, label: '0.6x ÖĞRETİM' },
+            { mult: 1.0, label: '1.0x NORMAL' },
+            { mult: 1.5, label: '1.5x TEMPOLU' },
+            { mult: 2.2, label: '2.0x MAÇ' },
+            { mult: 3.2, label: '3.0x PATLAYICI' }
+        ]
+    };
+
+    /********************************************************************
+     * 2. EXACT BILINEAR PERSPECTIVE PROJECTION & INVERSE UNPROJECTION
+     * Guarantees 0.0px offset between S-Pen/finger and drawn line/entity
+     ********************************************************************/
+    function get3DCourtQuad(W, H) {
+        if (state.orientation === 'horizontal') {
+            return {
+                tl: { x: W * 0.165, y: H * 0.135 },
+                tr: { x: W * 0.975, y: H * 0.108 },
+                br: { x: W * 1.045, y: H * 0.885 },
+                bl: { x: W * 0.042, y: H * 0.875 }
+            };
+        } else {
+            return {
+                tl: { x: W * 0.16, y: H * 0.09 },
+                tr: { x: W * 0.84, y: H * 0.09 },
+                br: { x: W * 0.95, y: H * 0.87 },
+                bl: { x: W * 0.05, y: H * 0.87 }
+            };
+        }
+    }
+
+    function get2DCourtRect(W, H) {
+        const padX = W * 0.026;
+        const padY = H * 0.036;
+        return {
+            x: padX,
+            y: padY,
+            w: W - padX * 2,
+            h: H - padY * 2
+        };
+    }
+
+    function projectCourtToScreen(u, v) {
+        const W = canvas.clientWidth  || window.innerWidth;
+        const H = canvas.clientHeight || window.innerHeight;
+
+        if (state.boardMode === '3d') {
+            const q = get3DCourtQuad(W, H);
+            let uu = u, vv = v;
+            if (state.orientation === 'vertical') {
+                uu = v;
+                vv = 1 - u;
+            }
+            const topX = q.tl.x + (q.tr.x - q.tl.x) * uu;
+            const topY = q.tl.y + (q.tr.y - q.tl.y) * uu;
+            const bX   = q.bl.x + (q.br.x - q.bl.x) * uu;
+            const bY   = q.bl.y + (q.br.y - q.bl.y) * uu;
+            return {
+                x: topX + (bX - topX) * vv,
+                y: topY + (bY - topY) * vv
+            };
+        } else {
+            const r = get2DCourtRect(W, H);
+            if (state.orientation === 'horizontal') {
+                return { x: r.x + u * r.w, y: r.y + v * r.h };
+            } else {
+                return { x: r.x + (1 - v) * r.w, y: r.y + u * r.h };
+            }
+        }
+    }
+
+    function unprojectScreenToCourt(px, py) {
+        const W = canvas.clientWidth  || window.innerWidth;
+        const H = canvas.clientHeight || window.innerHeight;
+
+        if (state.boardMode === '3d') {
+            const q = get3DCourtQuad(W, H);
+            let u = 0.5, v = 0.5;
+            for (let i = 0; i < 10; i++) {
+                const topY = q.tl.y + (q.tr.y - q.tl.y) * u;
+                const botY = q.bl.y + (q.br.y - q.bl.y) * u;
+                const dy = botY - topY;
+                v = Math.abs(dy) > 1e-4 ? (py - topY) / dy : 0.5;
+                v = Math.max(-0.08, Math.min(1.08, v));
+
+                const leftX  = q.tl.x + (q.bl.x - q.tl.x) * v;
+                const rightX = q.tr.x + (q.br.x - q.tr.x) * v;
+                const dx = rightX - leftX;
+                u = Math.abs(dx) > 1e-4 ? (px - leftX) / dx : 0.5;
+                u = Math.max(-0.08, Math.min(1.08, u));
+            }
+            u = Math.max(0.01, Math.min(0.99, u));
+            v = Math.max(0.01, Math.min(0.99, v));
+
+            if (state.orientation === 'vertical') {
+                return { u: 1 - v, v: u };
+            }
+            return { u, v };
+        } else {
+            const r = get2DCourtRect(W, H);
+            const nx = Math.max(0.01, Math.min(0.99, (px - r.x) / r.w));
+            const ny = Math.max(0.01, Math.min(0.99, (py - r.y) / r.h));
+            if (state.orientation === 'horizontal') {
+                return { u: nx, v: ny };
+            } else {
+                return { u: ny, v: 1 - nx };
+            }
+        }
+    }
+
+    function getPointerCanvasCSSCoords(e) {
+        const rect = canvas.getBoundingClientRect();
+        return {
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top
+        };
+    }
+
+    /********************************************************************
+     * 3. MASTER RENDER PIPELINE
+     ********************************************************************/
+    function drawScene() {
+        const dpr = window.devicePixelRatio || 1;
+        const W = canvas.clientWidth  || window.innerWidth;
+        const H = canvas.clientHeight || window.innerHeight;
+
+        if (canvas.width !== Math.round(W * dpr) || canvas.height !== Math.round(H * dpr)) {
+            canvas.width  = Math.round(W * dpr);
+            canvas.height = Math.round(H * dpr);
+        }
+
+        ctx.save();
+        ctx.scale(dpr, dpr);
+        ctx.clearRect(0, 0, W, H);
+
+        if (state.boardMode === '3d') {
+            draw3DPerspectiveCourt(W, H);
+        } else {
+            draw2DFullScreenCourt(W, H);
+        }
+
+        drawAnimationRoutes(W, H);
+
+        state.strokes.forEach(s => drawTacticalStroke(s));
+        if (state.activeStroke) {
+            drawTacticalStroke(state.activeStroke);
+        }
+
+        drawAllEntities(W, H);
+
+        if (state.boardMode === '3d') {
+            drawReference3DHoop(W, H);
+        }
+
+        ctx.restore();
+    }
+
+    function strokeProjectedPolyline(pts) {
+        if (pts.length < 2) return;
+        ctx.beginPath();
+        const p0 = projectCourtToScreen(pts[0].u, pts[0].v);
+        ctx.moveTo(p0.x, p0.y);
+        for (let i = 1; i < pts.length; i++) {
+            const p = projectCourtToScreen(pts[i].u, pts[i].v);
+            ctx.lineTo(p.x, p.y);
+        }
+        ctx.stroke();
+    }
+
+    function sampleArcUV(cu, cv, rU, rV, startAng, endAng, steps = 44) {
+        const arr = [];
+        for (let i = 0; i <= steps; i++) {
+            const a = startAng + (endAng - startAng) * (i / steps);
+            arr.push({ u: cu + Math.cos(a) * rU, v: cv + Math.sin(a) * rV });
+        }
+        return arr;
+    }
+
+    /* MODE 1: 3D PERSPECTIVE COURT (Matches Reference Image 1) */
+    function draw3DPerspectiveCourt(W, H) {
+        ctx.fillStyle = '#8ec5db';
+        ctx.fillRect(0, 0, W, H);
+
+        const tl = projectCourtToScreen(0, 0);
+        const tr = projectCourtToScreen(1, 0);
+        const br = projectCourtToScreen(1, 1);
+        const bl = projectCourtToScreen(0, 1);
+
+        ctx.fillStyle = 'rgba(20, 45, 70, 0.16)';
+        ctx.beginPath();
+        ctx.moveTo(tl.x - 4, tl.y + 6);
+        ctx.lineTo(tr.x + 4, tr.y + 6);
+        ctx.lineTo(br.x + 6, br.y + 8);
+        ctx.lineTo(bl.x - 6, bl.y + 8);
+        ctx.closePath();
+        ctx.fill();
+
+        const woodGrad = ctx.createLinearGradient(tl.x, tl.y, br.x, br.y);
+        woodGrad.addColorStop(0, '#e5ad84');
+        woodGrad.addColorStop(0.5, '#e29d73');
+        woodGrad.addColorStop(1, '#d79569');
+        ctx.fillStyle = woodGrad;
+        ctx.beginPath();
+        ctx.moveTo(tl.x, tl.y);
+        ctx.lineTo(tr.x, tr.y);
+        ctx.lineTo(br.x, br.y);
+        ctx.lineTo(bl.x, bl.y);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+        ctx.lineWidth = 1;
+        for (let i = 1; i < 16; i++) {
+            const v = i / 16;
+            strokeProjectedPolyline([{ u: 0, v }, { u: 1, v }]);
+        }
+
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.92)';
+        ctx.lineWidth = Math.max(2.6, Math.min(W, H) * 0.0042);
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        strokeProjectedPolyline([
+            { u: 0, v: 0 }, { u: 1, v: 0 },
+            { u: 1, v: 1 }, { u: 0, v: 1 }, { u: 0, v: 0 }
+        ]);
+
+        const keyU = 0.26;
+        const keyV1 = 0.31, keyV2 = 0.69;
+        strokeProjectedPolyline([
+            { u: 0, v: keyV1 }, { u: keyU, v: keyV1 },
+            { u: keyU, v: keyV2 }, { u: 0, v: keyV2 }
+        ]);
+
+        strokeProjectedPolyline(sampleArcUV(keyU, 0.5, 0.088, 0.19, -Math.PI / 2, Math.PI / 2, 36));
+
+        strokeProjectedPolyline([{ u: 0.055, v: 0.39 }, { u: 0.055, v: 0.61 }]);
+        strokeProjectedPolyline([{ u: 0.055, v: 0.50 }, { u: 0.085, v: 0.50 }]);
+        strokeProjectedPolyline(sampleArcUV(0.088, 0.5, 0.012, 0.022, 0, Math.PI * 2, 20));
+
+        const cTop = 0.068, cBot = 0.932, cU = 0.14;
+        const arc3 = sampleArcUV(0.068, 0.5, 0.34, 0.432, -Math.PI * 0.46, Math.PI * 0.46, 48);
+        strokeProjectedPolyline([{ u: 0, v: cTop }, { u: cU, v: cTop }, ...arc3, { u: cU, v: cBot }, { u: 0, v: cBot }]);
+
+        const midU = 0.68;
+        strokeProjectedPolyline([{ u: midU, v: 0 }, { u: midU, v: 1 }]);
+        strokeProjectedPolyline(sampleArcUV(midU, 0.5, 0.095, 0.195, 0, Math.PI * 2, 48));
+
+        const tickTop = projectCourtToScreen(0.51, 1.0);
+        const tickBot = projectCourtToScreen(0.51, 1.12);
+        ctx.beginPath();
+        ctx.moveTo(tickTop.x, tickTop.y);
+        ctx.lineTo(tickBot.x, tickBot.y);
+        ctx.stroke();
+    }
+
+    /* FACETED 3D SHADED BASKETBALL HOOP FROM IMAGE 1 */
+    function drawReference3DHoop(W, H) {
+        const baseAnchor = projectCourtToScreen(-0.075, 0.34);
+        const rimFloor   = projectCourtToScreen(0.048, 0.34);
+        const S = Math.min(W, H) / 680;
+
+        ctx.save();
+
+        const bx = baseAnchor.x;
+        const by = baseAnchor.y;
+
+        // Soft Ground Shadow under Blue Stanchion Base
+        ctx.fillStyle = 'rgba(25, 65, 95, 0.22)';
+        ctx.beginPath();
+        ctx.moveTo(bx - 65 * S, by + 40 * S);
+        ctx.lineTo(bx + 45 * S, by + 42 * S);
+        ctx.lineTo(bx + 70 * S, by + 15 * S);
+        ctx.lineTo(bx - 40 * S, by + 12 * S);
+        ctx.closePath();
+        ctx.fill();
+
+        // Multi-Faceted 3D Blue Padded Base (Image 1 shading)
+        ctx.fillStyle = '#1e429f';
+        ctx.strokeStyle = '#17327a';
+        ctx.lineWidth = 1.2 * S;
+        ctx.beginPath();
+        ctx.moveTo(bx - 52 * S, by + 32 * S);
+        ctx.lineTo(bx - 40 * S, by - 64 * S);
+        ctx.lineTo(bx - 8 * S,  by - 52 * S);
+        ctx.lineTo(bx - 8 * S,  by + 36 * S);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#2b59c3';
+        ctx.beginPath();
+        ctx.moveTo(bx - 8 * S,  by + 36 * S);
+        ctx.lineTo(bx - 8 * S,  by - 52 * S);
+        ctx.lineTo(bx + 10 * S, by - 72 * S);
+        ctx.lineTo(bx + 26 * S, by + 14 * S);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#4c7ef3';
+        ctx.beginPath();
+        ctx.moveTo(bx - 40 * S, by - 64 * S);
+        ctx.lineTo(bx - 16 * S, by - 92 * S);
+        ctx.lineTo(bx + 10 * S, by - 72 * S);
+        ctx.lineTo(bx - 8 * S,  by - 52 * S);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        const bbX = rimFloor.x + 8 * S;
+        const bbY = rimFloor.y - 95 * S;
+
+        // White Rear Boom Extension
+        ctx.strokeStyle = '#d8e6f3';
+        ctx.lineWidth = 7.5 * S;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(bx - 22 * S, by - 82 * S);
+        ctx.lineTo(bbX - 58 * S, bbY + 16 * S);
+        ctx.stroke();
+
+        // Blue Main Collar Arm behind Backboard
+        ctx.fillStyle = '#2b6cb0';
+        ctx.strokeStyle = '#1e4e8c';
+        ctx.lineWidth = 1.2 * S;
+        ctx.beginPath();
+        ctx.moveTo(bbX - 66 * S, bbY + 11 * S);
+        ctx.lineTo(bbX - 4 * S,  bbY + 11 * S);
+        ctx.lineTo(bbX - 4 * S,  bbY + 23 * S);
+        ctx.lineTo(bbX - 66 * S, bbY + 23 * S);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // Diagonal Tension Rods
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.78)';
+        ctx.lineWidth = 1.8 * S;
+        ctx.beginPath();
+        ctx.moveTo(bbX - 54 * S, bbY + 12 * S);
+        ctx.lineTo(bbX + 10 * S, bbY - 46 * S);
+        ctx.moveTo(bbX - 54 * S, bbY + 18 * S);
+        ctx.lineTo(bbX - 14 * S, bbY + 38 * S);
+        ctx.stroke();
+
+        // Isometric Glass Backboard
+        const pTL = { x: bbX + 16 * S, y: bbY - 56 * S };
+        const pTR = { x: bbX - 14 * S, y: bbY - 12 * S };
+        const pBR = { x: bbX - 14 * S, y: bbY + 42 * S };
+        const pBL = { x: bbX + 16 * S, y: bbY - 2 * S  };
+
+        ctx.fillStyle = 'rgba(225, 242, 255, 0.24)';
+        ctx.strokeStyle = '#f8fafc';
+        ctx.lineWidth = 2.6 * S;
+        ctx.beginPath();
+        ctx.moveTo(pTL.x, pTL.y);
+        ctx.lineTo(pTR.x, pTR.y);
+        ctx.lineTo(pBR.x, pBR.y);
+        ctx.lineTo(pBL.x, pBL.y);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.strokeStyle = '#2563eb';
+        ctx.lineWidth = 5 * S;
+        ctx.beginPath();
+        ctx.moveTo(pBL.x, pBL.y);
+        ctx.lineTo(pTR.x, pBR.y);
+        ctx.stroke();
+
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+        ctx.lineWidth = 1.6 * S;
+        ctx.beginPath();
+        ctx.moveTo(bbX + 7 * S, bbY - 16 * S);
+        ctx.lineTo(bbX - 5 * S, bbY + 2 * S);
+        ctx.lineTo(bbX - 5 * S, bbY + 22 * S);
+        ctx.lineTo(bbX + 7 * S, bbY + 4 * S);
+        ctx.closePath();
+        ctx.stroke();
+
+        // Top Dark-Navy Shot Clock ("24")
+        const scX = bbX - 18 * S;
+        const scY = bbY - 56 * S;
+
+        ctx.strokeStyle = '#1e3a8a';
+        ctx.lineWidth = 3.5 * S;
+        ctx.beginPath();
+        ctx.moveTo(bbX - 10 * S, bbY - 8 * S);
+        ctx.lineTo(scX, scY + 18 * S);
+        ctx.stroke();
+
+        ctx.fillStyle = '#0f172a';
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 1.2 * S;
+        ctx.beginPath();
+        ctx.moveTo(scX - 14 * S, scY - 14 * S);
+        ctx.lineTo(scX + 12 * S, scY - 22 * S);
+        ctx.lineTo(scX + 12 * S, scY + 12 * S);
+        ctx.lineTo(scX - 14 * S, scY + 20 * S);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#f59e0b';
+        ctx.font = `900 ${Math.round(11.5 * S)}px Inter, monospace`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('24', scX - 1 * S, scY - 1 * S);
+
+        // Orange Rim & White Net
+        const rimX = bbX + 14 * S;
+        const rimY = bbY + 14 * S;
+
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.78)';
+        ctx.lineWidth = 1.2 * S;
+        for (let i = -4; i <= 4; i++) {
+            ctx.beginPath();
+            ctx.moveTo(rimX + i * 3.2 * S, rimY);
+            ctx.lineTo(rimX + i * 1.9 * S, rimY + 22 * S);
+            ctx.stroke();
+        }
+        ctx.beginPath();
+        ctx.ellipse(rimX, rimY + 10 * S, 10 * S, 4 * S, 0, 0, Math.PI * 2);
+        ctx.moveTo(rimX + 8 * S, rimY + 19 * S);
+        ctx.ellipse(rimX, rimY + 19 * S, 8 * S, 3 * S, 0, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.strokeStyle = '#ea580c';
+        ctx.lineWidth = 2.8 * S;
+        ctx.beginPath();
+        ctx.moveTo(bbX + 1 * S, rimY);
+        ctx.lineTo(rimX - 12 * S, rimY);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.ellipse(rimX, rimY, 13.5 * S, 6.2 * S, 0, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.restore();
+    }
+
+    /* MODE 2: 2D FULL-SCREEN MATCH TACTICAL BOARD */
+    function draw2DFullScreenCourt(W, H) {
+        const theme = state.themes2D[state.themeIdx];
+        const r = get2DCourtRect(W, H);
+
+        ctx.fillStyle = theme.apron;
+        ctx.fillRect(0, 0, W, H);
+
+        ctx.fillStyle = theme.woodA;
+        ctx.fillRect(r.x, r.y, r.w, r.h);
+
+        const planks = 24;
+        ctx.fillStyle = theme.woodB;
+        ctx.globalAlpha = 0.30;
+        if (state.orientation === 'horizontal') {
+            const sh = r.h / planks;
+            for (let i = 0; i < planks; i += 2) ctx.fillRect(r.x, r.y + i * sh, r.w, sh);
+        } else {
+            const sw = r.w / planks;
+            for (let i = 0; i < planks; i += 2) ctx.fillRect(r.x + i * sw, r.y, sw, r.h);
+        }
+        ctx.globalAlpha = 1;
+
+        const keyLen = 0.19, keyV1 = 0.33, keyV2 = 0.67;
+        ctx.fillStyle = theme.key;
+        [ [0, keyLen], [1 - keyLen, 1] ].forEach(([u1, u2]) => {
+            const pA = projectCourtToScreen(u1, keyV1);
+            const pB = projectCourtToScreen(u2, keyV2);
+            ctx.fillRect(Math.min(pA.x, pB.x), Math.min(pA.y, pB.y), Math.abs(pB.x - pA.x), Math.abs(pB.y - pA.y));
+        });
+
+        const cPt = projectCourtToScreen(0.5, 0.5);
+        const cEdge = projectCourtToScreen(0.5, 0.62);
+        const cRad = Math.hypot(cEdge.x - cPt.x, cEdge.y - cPt.y);
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(cPt.x, cPt.y, cRad, 0, Math.PI * 2);
+        ctx.fillStyle = theme.key;
+        ctx.globalAlpha = 0.45;
+        ctx.fill();
+        ctx.globalAlpha = 0.88;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = theme.lines;
+        ctx.font = `900 ${Math.round(cRad * 0.40)}px Montserrat, sans-serif`;
+        ctx.fillText('PER', cPt.x, cPt.y - cRad * 0.42);
+        ctx.font = `800 ${Math.round(cRad * 0.28)}px Montserrat, sans-serif`;
+        ctx.fillText('SONAL', cPt.x, cPt.y);
+        ctx.fillStyle = theme.ring;
+        ctx.font = `900 ${Math.round(cRad * 0.46)}px Montserrat, sans-serif`;
+        ctx.fillText('IST', cPt.x, cPt.y + cRad * 0.42);
+        ctx.restore();
+
+        ctx.strokeStyle = theme.lines;
+        ctx.lineWidth = Math.max(2, Math.min(W, H) * 0.0035);
+        strokeProjectedPolyline([{ u: 0, v: 0 }, { u: 1, v: 0 }, { u: 1, v: 1 }, { u: 0, v: 1 }, { u: 0, v: 0 }]);
+        strokeProjectedPolyline([{ u: 0.5, v: 0 }, { u: 0.5, v: 1 }]);
+        strokeProjectedPolyline(sampleArcUV(0.5, 0.5, 0.065, 0.12, 0, Math.PI * 2, 48));
+
+        [false, true].forEach(isRight => {
+            const dir = isRight ? -1 : 1;
+            const base = isRight ? 1 : 0;
+            strokeProjectedPolyline([
+                { u: base, v: keyV1 }, { u: base + dir * keyLen, v: keyV1 },
+                { u: base + dir * keyLen, v: keyV2 }, { u: base, v: keyV2 }
+            ]);
+            strokeProjectedPolyline(sampleArcUV(base + dir * keyLen, 0.5, 0.062, 0.12, 0, Math.PI * 2, 40));
+
+            const cTop = 0.07, cBot = 0.93, cU = base + dir * 0.095;
+            const arcPts = sampleArcUV(
+                base + dir * 0.055, 0.5, 0.235, 0.43,
+                isRight ? Math.PI * 0.54 : -Math.PI * 0.46,
+                isRight ? Math.PI * 1.46 : Math.PI * 0.46, 44
+            );
+            strokeProjectedPolyline([{ u: base, v: cTop }, { u: cU, v: cTop }, ...arcPts, { u: cU, v: cBot }, { u: base, v: cBot }]);
+
+            const rimPt = projectCourtToScreen(base + dir * 0.055, 0.5);
+            ctx.save();
+            ctx.strokeStyle = '#ea580c';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(rimPt.x, rimPt.y, Math.min(W, H) * 0.014, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+        });
+    }
+
+    /********************************************************************
+     * 4. DIRECT CANVAS ENTITIES (3D CONES, PERSPECTIVE PLAYERS, BALLS)
+     ********************************************************************/
+    function drawAllEntities(W, H) {
+        const baseScale = (Math.min(W, H) / 680) * state.tokenScale;
+
+        const sorted = [...state.entities].sort((a, b) => {
+            return projectCourtToScreen(a.u, a.v).y - projectCourtToScreen(b.u, b.v).y;
+        });
+
+        sorted.forEach(ent => {
+            const p = projectCourtToScreen(ent.u, ent.v);
+            ctx.save();
+            ctx.translate(p.x, p.y);
+
+            if (ent.kind === 'cone') {
+                draw3DConeOnCanvas(ent.color, baseScale);
+            } else if (ent.kind === 'player') {
+                drawPlayerOnCanvas(ent, baseScale);
+            } else if (ent.kind === 'ball') {
+                drawBasketballOnCanvas(baseScale);
+            }
+
+            ctx.restore();
+        });
+    }
+
+    function draw3DConeOnCanvas(colorType, S) {
+        const isBlue = colorType === 'blue';
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.26)';
+        ctx.beginPath();
+        ctx.ellipse(2 * S, 4 * S, 15 * S, 6 * S, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = isBlue ? '#1e3a8a' : '#9a3412';
+        ctx.beginPath();
+        ctx.moveTo(-15 * S, 2 * S);
+        ctx.lineTo(0, -4 * S);
+        ctx.lineTo(15 * S, 2 * S);
+        ctx.lineTo(0, 8 * S);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = isBlue ? '#2563eb' : '#ea580c';
+        ctx.beginPath();
+        ctx.moveTo(-11 * S, 2 * S);
+        ctx.lineTo(-2.5 * S, -24 * S);
+        ctx.lineTo(2.5 * S, -24 * S);
+        ctx.lineTo(11 * S, 2 * S);
+        ctx.quadraticCurveTo(0, 6 * S, -11 * S, 2 * S);
+        ctx.fill();
+
+        ctx.fillStyle = isBlue ? '#60a5fa' : '#fb923c';
+        ctx.beginPath();
+        ctx.moveTo(-8 * S, 1 * S);
+        ctx.lineTo(-2 * S, -23 * S);
+        ctx.lineTo(0.5 * S, -23 * S);
+        ctx.lineTo(-2 * S, 2.5 * S);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = isBlue ? '#172554' : '#431407';
+        ctx.beginPath();
+        ctx.ellipse(0, -24 * S, 2.6 * S, 1.2 * S, 0, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    function drawPlayerOnCanvas(ent, S) {
+        const fillMap = {
+            blue:   '#4f7cac',
+            orange: '#f5b041',
+            red:    '#e11d48'
+        };
+        const fill = fillMap[ent.team] || '#4f7cac';
+
+        if (state.boardMode === '3d') {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+            ctx.beginPath();
+            ctx.ellipse(0, 4 * S, 22 * S, 13 * S, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = fill;
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 3.2 * S;
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 21 * S, 12.5 * S, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+        } else {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+            ctx.beginPath();
+            ctx.arc(0, 3 * S, 18 * S, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = fill;
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2.6 * S;
+            ctx.beginPath();
+            ctx.arc(0, 0, 17.5 * S, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = ent.team === 'orange' ? '#0f172a' : '#ffffff';
+            ctx.font = `900 ${Math.round(13 * S)}px Inter, sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(ent.label || '1', 0, 1 * S);
+        }
+    }
+
+    function drawBasketballOnCanvas(S) {
+        const r = 12.5 * S;
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.30)';
+        ctx.beginPath();
+        ctx.ellipse(1 * S, 4 * S, r * 0.95, r * 0.55, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        const grad = ctx.createRadialGradient(-4 * S, -4 * S, 2 * S, 0, 0, r);
+        grad.addColorStop(0, '#fb923c');
+        grad.addColorStop(0.65, '#ea580c');
+        grad.addColorStop(1, '#9a3412');
+
+        ctx.fillStyle = grad;
+        ctx.strokeStyle = '#431407';
+        ctx.lineWidth = 1.2 * S;
+        ctx.beginPath();
+        ctx.arc(0, 0, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.strokeStyle = 'rgba(40, 15, 5, 0.75)';
+        ctx.lineWidth = 1.1 * S;
+        ctx.beginPath();
+        ctx.moveTo(-r, 0); ctx.lineTo(r, 0);
+        ctx.moveTo(0, -r); ctx.lineTo(0, r);
+        ctx.stroke();
+    }
+
+    /********************************************************************
+     * 5. SMART SINGLE-STROKE PICK & ROLL + WAVY SLALOM DRIBBLE PATHS
+     ********************************************************************/
+    function detectPickAndRollCornerIndex(screenPts) {
+        if (screenPts.length < 7) return -1;
+        const p0 = screenPts[0];
+
+        for (let i = 3; i < screenPts.length - 3; i++) {
+            const pTurn = screenPts[i];
+            const dist1 = Math.hypot(pTurn.x - p0.x, pTurn.y - p0.y);
+            if (dist1 < 30) continue;
+
+            const pAfter = screenPts[Math.min(screenPts.length - 1, i + 5)];
+            const dist2 = Math.hypot(pAfter.x - pTurn.x, pAfter.y - pTurn.y);
+            if (dist2 < 20) continue;
+
+            const a1 = Math.atan2(pTurn.y - p0.y, pTurn.x - p0.x);
+            const a2 = Math.atan2(pAfter.y - pTurn.y, pAfter.x - pTurn.x);
+            let diff = Math.abs(a2 - a1);
+            if (diff > Math.PI) diff = Math.PI * 2 - diff;
+
+            if (diff > 0.60) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    function drawTacticalStroke(s) {
+        if (!s.pts || s.pts.length < 2) return;
+        const screenPts = s.pts.map(p => projectCourtToScreen(p.u, p.v));
+        const p0   = screenPts[0];
+        const pEnd = screenPts[screenPts.length - 1];
+        const lw   = 3.6 * state.strokeScale;
+
+        ctx.save();
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.lineWidth = lw;
+        ctx.strokeStyle = s.color || '#2563eb';
+        ctx.fillStyle   = s.color || '#2563eb';
+
+        if (s.type === 'free') {
+            ctx.beginPath();
+            ctx.moveTo(p0.x, p0.y);
+            screenPts.forEach(p => ctx.lineTo(p.x, p.y));
+            ctx.stroke();
+        }
+        else if (s.type === 'cut') {
+            ctx.beginPath();
+            ctx.moveTo(p0.x, p0.y);
+            screenPts.forEach(p => ctx.lineTo(p.x, p.y));
+            ctx.stroke();
+            const prev = screenPts[Math.max(0, screenPts.length - 4)];
+            drawArrowHead(pEnd.x, pEnd.y, Math.atan2(pEnd.y - prev.y, pEnd.x - prev.x), 14 * state.strokeScale);
+        }
+        else if (s.type === 'pass') {
+            ctx.save();
+            ctx.setLineDash([8 * state.strokeScale, 6 * state.strokeScale]);
+            ctx.beginPath();
+            ctx.moveTo(p0.x, p0.y);
+            ctx.lineTo(pEnd.x, pEnd.y);
+            ctx.stroke();
+            ctx.restore();
+            drawArrowHead(pEnd.x, pEnd.y, Math.atan2(pEnd.y - p0.y, pEnd.x - p0.x), 14 * state.strokeScale);
+        }
+        else if (s.type === 'screen') {
+            ctx.beginPath();
+            ctx.moveTo(p0.x, p0.y);
+            ctx.lineTo(pEnd.x, pEnd.y);
+            ctx.stroke();
+            drawScreenTBar(pEnd.x, pEnd.y, Math.atan2(pEnd.y - p0.y, pEnd.x - p0.x), 16 * state.strokeScale);
+        }
+        else if (s.type === 'dribble') {
+            drawWavyDribbleStroke(screenPts, s.color || '#3b82f6', lw);
+        }
+        else if (s.type === 'pr') {
+            const turnIdx = detectPickAndRollCornerIndex(screenPts);
+            if (turnIdx !== -1) {
+                const pScreen = screenPts[turnIdx];
+                const screenAng = Math.atan2(pScreen.y - p0.y, pScreen.x - p0.x);
+
+                ctx.strokeStyle = '#ea580c';
+                ctx.fillStyle   = '#ea580c';
+                ctx.beginPath();
+                ctx.moveTo(p0.x, p0.y);
+                for (let i = 1; i <= turnIdx; i++) ctx.lineTo(screenPts[i].x, screenPts[i].y);
+                ctx.stroke();
+                drawScreenTBar(pScreen.x, pScreen.y, screenAng, 17 * state.strokeScale);
+
+                ctx.save();
+                ctx.strokeStyle = '#0284c7';
+                ctx.fillStyle   = '#0284c7';
+                ctx.setLineDash([8 * state.strokeScale, 5 * state.strokeScale]);
+                ctx.beginPath();
+                ctx.moveTo(pScreen.x, pScreen.y);
+                for (let i = turnIdx + 1; i < screenPts.length; i++) ctx.lineTo(screenPts[i].x, screenPts[i].y);
+                ctx.stroke();
+                ctx.restore();
+
+                const prev = screenPts[Math.max(turnIdx, screenPts.length - 4)];
+                ctx.fillStyle = '#0284c7';
+                drawArrowHead(pEnd.x, pEnd.y, Math.atan2(pEnd.y - prev.y, pEnd.x - prev.x), 15 * state.strokeScale);
+            } else if (s.isSecondStepRoll) {
+                ctx.save();
+                ctx.strokeStyle = '#0284c7';
+                ctx.fillStyle   = '#0284c7';
+                ctx.setLineDash([8 * state.strokeScale, 5 * state.strokeScale]);
+                ctx.beginPath();
+                ctx.moveTo(p0.x, p0.y);
+                screenPts.forEach(p => ctx.lineTo(p.x, p.y));
+                ctx.stroke();
+                ctx.restore();
+                const prev = screenPts[Math.max(0, screenPts.length - 4)];
+                ctx.fillStyle = '#0284c7';
+                drawArrowHead(pEnd.x, pEnd.y, Math.atan2(pEnd.y - prev.y, pEnd.x - prev.x), 15 * state.strokeScale);
+            } else {
+                ctx.strokeStyle = '#ea580c';
+                ctx.beginPath();
+                ctx.moveTo(p0.x, p0.y);
+                ctx.lineTo(pEnd.x, pEnd.y);
+                ctx.stroke();
+                drawScreenTBar(pEnd.x, pEnd.y, Math.atan2(pEnd.y - p0.y, pEnd.x - p0.x), 17 * state.strokeScale);
+            }
+        }
+
+        ctx.restore();
+    }
+
+    function drawWavyDribbleStroke(screenPts, color, lw) {
+        if (screenPts.length < 2) return;
+
+        const uniform = [screenPts[0]];
+        const step = 3.8;
+        let acc = 0;
+
+        for (let i = 1; i < screenPts.length; i++) {
+            let a = screenPts[i - 1];
+            let b = screenPts[i];
+            let d = Math.hypot(b.x - a.x, b.y - a.y);
+            while (acc + d >= step) {
+                const t = (step - acc) / d;
+                const nx = a.x + (b.x - a.x) * t;
+                const ny = a.y + (b.y - a.y) * t;
+                uniform.push({ x: nx, y: ny });
+                a = { x: nx, y: ny };
+                d = Math.hypot(b.x - a.x, b.y - a.y);
+                acc = 0;
+            }
+            acc += d;
+        }
+        uniform.push(screenPts[screenPts.length - 1]);
+
+        ctx.save();
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.14)';
+        ctx.lineWidth = lw + 1.5;
+        ctx.beginPath();
+        uniform.forEach((p, idx) => {
+            if (idx === 0) ctx.moveTo(p.x, p.y + 4);
+            else ctx.lineTo(p.x, p.y + 4);
+        });
+        ctx.stroke();
+
+        ctx.strokeStyle = color;
+        ctx.fillStyle   = color;
+        ctx.lineWidth   = lw;
+        ctx.beginPath();
+
+        const amp = 5.5 * state.strokeScale;
+        const freq = 0.54;
+        for (let i = 0; i < uniform.length; i++) {
+            const p = uniform[i];
+            const prev = uniform[Math.max(0, i - 1)];
+            const next = uniform[Math.min(uniform.length - 1, i + 1)];
+            const ang = Math.atan2(next.y - prev.y, next.x - prev.x);
+            const nx = -Math.sin(ang);
+            const ny =  Math.cos(ang);
+            const taper = i > uniform.length - 6 ? (uniform.length - 1 - i) / 6 : 1;
+            const wave = Math.sin(i * freq) * amp * taper;
+            const wx = p.x + nx * wave;
+            const wy = p.y + ny * wave;
+            if (i === 0) ctx.moveTo(wx, wy);
+            else ctx.lineTo(wx, wy);
+        }
+        ctx.stroke();
+
+        const pEnd = screenPts[screenPts.length - 1];
+        const pPrev = screenPts[Math.max(0, screenPts.length - 5)];
+        drawArrowHead(pEnd.x, pEnd.y, Math.atan2(pEnd.y - pPrev.y, pEnd.x - pPrev.x), 15 * state.strokeScale);
+        ctx.restore();
+    }
+
+    function drawArrowHead(x, y, ang, size) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(ang);
+        ctx.beginPath();
+        ctx.moveTo(3, 0);
+        ctx.lineTo(-size, -size * 0.58);
+        ctx.lineTo(-size * 0.75, 0);
+        ctx.lineTo(-size, size * 0.58);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+    }
+
+    function drawScreenTBar(x, y, ang, halfLen) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(ang);
+        ctx.beginPath();
+        ctx.moveTo(0, -halfLen);
+        ctx.lineTo(0, halfLen);
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    function drawAnimationRoutes() {
+        state.entities.forEach(ent => {
+            if (!ent.route || ent.route.length < 2) return;
+            const screenPts = ent.route.map(pt => projectCourtToScreen(pt.u, pt.v));
+            const color = ent.team === 'blue'
+                ? 'rgba(59, 130, 246, 0.72)'
+                : (ent.team === 'orange' ? 'rgba(185, 115, 65, 0.72)' : 'rgba(225, 29, 72, 0.72)');
+
+            if (ent.wavyRoute) {
+                drawWavyDribbleStroke(screenPts, color, 3.1 * state.strokeScale);
+            } else {
+                ctx.save();
+                ctx.strokeStyle = color;
+                ctx.fillStyle   = color;
+                ctx.lineWidth   = 3.1 * state.strokeScale;
+                ctx.beginPath();
+                ctx.moveTo(screenPts[0].x, screenPts[0].y);
+                screenPts.forEach(p => ctx.lineTo(p.x, p.y));
+                ctx.stroke();
+                const pEnd = screenPts[screenPts.length - 1];
+                const pPrev = screenPts[Math.max(0, screenPts.length - 4)];
+                drawArrowHead(pEnd.x, pEnd.y, Math.atan2(pEnd.y - pPrev.y, pEnd.x - pPrev.x), 14 * state.strokeScale);
+                ctx.restore();
+            }
+        });
+    }
+
+    /********************************************************************
+     * 6. UNIFIED POINTER & S-PEN INTERACTION ON CANVAS (ZERO OFFSET)
+     ********************************************************************/
+    function findHitEntity(px, py) {
+        const W = canvas.clientWidth  || window.innerWidth;
+        const H = canvas.clientHeight || window.innerHeight;
+        const hitRadius = Math.max(24, (Math.min(W, H) / 680) * 26 * state.tokenScale);
+
+        for (let i = state.entities.length - 1; i >= 0; i--) {
+            const ent = state.entities[i];
+            const sp = projectCourtToScreen(ent.u, ent.v);
+            if (Math.hypot(px - sp.x, py - sp.y) <= hitRadius) {
+                return ent;
+            }
+        }
+        return null;
+    }
+
+    canvas.addEventListener('pointerdown', (e) => {
+        const pt = getPointerCanvasCSSCoords(e);
+        const uv = unprojectScreenToCourt(pt.x, pt.y);
+        const hitEnt = findHitEntity(pt.x, pt.y);
+
+        document.body.classList.add('is-interacting');
+        canvas.setPointerCapture(e.pointerId);
+
+        if (state.tool === 'erase') {
+            if (hitEnt) {
+                state.entities = state.entities.filter(item => item !== hitEnt);
+                drawScene();
+                setStatus('Saha elemanı silindi.');
+            } else {
+                eraseStrokeAt(pt.x, pt.y);
+            }
+            return;
+        }
+
+        if (hitEnt && (state.tool === 'move' || state.isRecordingRoute || hitEnt.kind === 'cone' || hitEnt.kind === 'ball')) {
+            state.draggingEntity = hitEnt;
+            state.dragStartUV = { u: hitEnt.u, v: hitEnt.v };
+            if (state.isRecordingRoute && hitEnt.kind !== 'cone') {
+                hitEnt.route = [{ u: hitEnt.u, v: hitEnt.v }];
+                hitEnt.wavyRoute = state.routeWavyStyle;
+            }
+            return;
+        }
+
+        if (state.tool === 'move' && hitEnt) {
+            state.draggingEntity = hitEnt;
+            state.dragStartUV = { u: hitEnt.u, v: hitEnt.v };
+            return;
+        }
+
+        if (state.tool !== 'move') {
+            if (state.tool === 'pr' && state.pendingPrScreenPoint) {
+                state.activeStroke = {
+                    type: 'pr',
+                    isSecondStepRoll: true,
+                    color: '#0284c7',
+                    pts: [state.pendingPrScreenPoint, uv]
+                };
+            } else {
+                const defaultColor = state.tool === 'dribble' ? '#3b82f6' : (state.boardMode === '2d' ? '#1e293b' : '#ea580c');
+                state.activeStroke = {
+                    type: state.tool,
+                    color: defaultColor,
+                    pts: [uv]
+                };
+            }
+            drawScene();
+        }
+    });
+
+    canvas.addEventListener('pointermove', (e) => {
+        const pt = getPointerCanvasCSSCoords(e);
+        const uv = unprojectScreenToCourt(pt.x, pt.y);
+
+        if (state.draggingEntity) {
+            state.draggingEntity.u = uv.u;
+            state.draggingEntity.v = uv.v;
+            if (state.isRecordingRoute && state.draggingEntity.kind !== 'cone') {
+                state.draggingEntity.route.push({ u: uv.u, v: uv.v });
+            }
+            drawScene();
+            return;
+        }
+
+        if (state.activeStroke) {
+            state.activeStroke.pts.push(uv);
+            drawScene();
+        }
+    });
+
+    function finishPointerInteraction() {
+        document.body.classList.remove('is-interacting');
+
+        if (state.draggingEntity) {
+            const ent = state.draggingEntity;
+            if (state.isRecordingRoute && ent.kind !== 'cone' && ent.route && ent.route.length > 2 && state.dragStartUV) {
+                ent.u = state.dragStartUV.u;
+                ent.v = state.dragStartUV.v;
+                setStatus('Animasyon rotası kaydedildi! "OYNAT" düğmesiyle maç hızında başlatabilirsiniz.');
+            }
+            state.draggingEntity = null;
+            state.dragStartUV = null;
+            drawScene();
+            return;
+        }
+
+        if (state.activeStroke) {
+            const pts = state.activeStroke.pts;
+            if (pts.length >= 2) {
+                const sPts = pts.map(p => projectCourtToScreen(p.u, p.v));
+                const len = Math.hypot(sPts[sPts.length - 1].x - sPts[0].x, sPts[sPts.length - 1].y - sPts[0].y);
+
+                if (len > 10) {
+                    if (state.tool === 'pr') {
+                        const turnIdx = detectPickAndRollCornerIndex(sPts);
+                        if (turnIdx !== -1) {
+                            state.pendingPrScreenPoint = null;
+                            setStatus('Tek çizgide Pick & Roll (Perde + Devrilme) tamamlandı!');
+                        } else if (state.activeStroke.isSecondStepRoll) {
+                            state.pendingPrScreenPoint = null;
+                            setStatus('Pick & Roll devrilme oku tamamlandı.');
+                        } else {
+                            state.pendingPrScreenPoint = pts[pts.length - 1];
+                            setStatus('Perde (Screen) konuldu. Devrilme yönünü çekebilir veya tek çizgide açı kırabilirsiniz.');
+                        }
+                    }
+                    state.strokes.push(state.activeStroke);
+                }
+            }
+            state.activeStroke = null;
+            drawScene();
+        }
+    }
+
+    canvas.addEventListener('pointerup', finishPointerInteraction);
+    canvas.addEventListener('pointercancel', finishPointerInteraction);
+
+    function eraseStrokeAt(px, py) {
+        let bestIdx = -1;
+        let minDist = 30;
+        state.strokes.forEach((s, idx) => {
+            s.pts.forEach(p => {
+                const sp = projectCourtToScreen(p.u, p.v);
+                const d = Math.hypot(px - sp.x, py - sp.y);
+                if (d < minDist) {
+                    minDist = d;
+                    bestIdx = idx;
+                }
+            });
+        });
+        if (bestIdx !== -1) {
+            state.strokes.splice(bestIdx, 1);
+            drawScene();
+            setStatus('Çizgi silindi.');
+        }
+    }
+
+    /********************************************************************
+     * 7. PRESETS & REAL GAME-SPEED ANIMATION ENGINE
+     ********************************************************************/
+    function createSlalomWaveRoute(uCol, vStart, coneVs) {
+        const route = [];
+        route.push({ u: uCol + 0.016, v: vStart });
+        coneVs.slice().reverse().forEach((cv, idx) => {
+            const side = (idx % 2 === 0) ? -0.035 : 0.035;
+            route.push({ u: uCol + side * 0.5, v: cv + 0.04 });
+            route.push({ u: uCol + side,       v: cv });
+            route.push({ u: uCol + side * 0.5, v: cv - 0.04 });
+        });
+        const topV = coneVs[0];
+        route.push({ u: uCol,         v: topV - 0.055 });
+        route.push({ u: uCol - 0.036, v: topV - 0.015 });
+        route.push({ u: uCol - 0.034, v: vStart });
+        return route;
+    }
+
+    function loadSlalomDrillPreset() {
+        stopAnimation();
+        state.entities = [];
+        state.strokes = [];
+        setBoardMode('3d');
+
+        const coneVs = [0.27, 0.37, 0.47, 0.57];
+        const blueU   = 0.255;
+        const orangeU = 0.425;
+
+        coneVs.forEach(cv => {
+            state.entities.push({ kind: 'cone', color: 'blue',   u: blueU,   v: cv });
+            state.entities.push({ kind: 'cone', color: 'orange', u: orangeU, v: cv });
+        });
+
+        const pBlue1 = {
+            kind: 'player', team: 'blue', label: '1',
+            u: blueU + 0.015, v: 0.64,
+            wavyRoute: true,
+            route: createSlalomWaveRoute(blueU, 0.64, coneVs)
+        };
+        const bBlue = { kind: 'ball', u: blueU + 0.030, v: 0.595 };
+        pBlue1.linkedBall = bBlue;
+
+        state.entities.push(
+            pBlue1,
+            { kind: 'player', team: 'blue', label: '2', u: blueU + 0.012, v: 0.725, route: [] },
+            { kind: 'player', team: 'blue', label: '3', u: blueU + 0.008, v: 0.810, route: [] },
+            bBlue
+        );
+
+        const pOrange1 = {
+            kind: 'player', team: 'orange', label: '1',
+            u: orangeU + 0.025, v: 0.64,
+            wavyRoute: true,
+            route: createSlalomWaveRoute(orangeU, 0.64, coneVs)
+        };
+        const bOrange = { kind: 'ball', u: orangeU + 0.042, v: 0.595 };
+        pOrange1.linkedBall = bOrange;
+
+        state.entities.push(
+            pOrange1,
+            { kind: 'player', team: 'orange', label: '2', u: orangeU + 0.025, v: 0.725, route: [] },
+            { kind: 'player', team: 'orange', label: '3', u: orangeU + 0.025, v: 0.810, route: [] },
+            bOrange
+        );
+
+        drawScene();
+        setStatus('1. Görseldeki Kuka Slalom Dripling Sahnesi hazır! "OYNAT" ile maç hızında başlatın.');
+    }
+
+    function load5v5MatchPreset() {
+        stopAnimation();
+        state.entities = [];
+        state.strokes = [];
+        setBoardMode('2d');
+
+        const lineup = [
+            { kind: 'player', team: 'red',    label: '1', u: 0.33, v: 0.50 },
+            { kind: 'player', team: 'red',    label: '2', u: 0.24, v: 0.18 },
+            { kind: 'player', team: 'red',    label: '3', u: 0.24, v: 0.82 },
+            { kind: 'player', team: 'red',    label: '4', u: 0.14, v: 0.35 },
+            { kind: 'player', team: 'red',    label: '5', u: 0.45, v: 0.42 },
+            { kind: 'player', team: 'blue',   label: '1', u: 0.27, v: 0.50 },
+            { kind: 'player', team: 'blue',   label: '2', u: 0.19, v: 0.23 },
+            { kind: 'player', team: 'blue',   label: '3', u: 0.19, v: 0.77 },
+            { kind: 'player', team: 'blue',   label: '4', u: 0.11, v: 0.38 },
+            { kind: 'player', team: 'blue',   label: '5', u: 0.49, v: 0.45 },
+            { kind: 'ball', u: 0.35, v: 0.53 }
+        ];
+        lineup.forEach(item => state.entities.push({ ...item, route: [] }));
+        drawScene();
+        setStatus('2B Tam Ekran Maç İçi Taktik Board kuruldu.');
+    }
+
+    function spawnPlayer(team) {
+        const lbl = String(state.nextNum[team]++);
+        state.entities.push({
+            kind: 'player',
+            team,
+            label: lbl,
+            u: 0.30 + Math.random() * 0.25,
+            v: 0.28 + Math.random() * 0.44,
+            route: []
+        });
+        selectTool('move');
+        drawScene();
+    }
+
+    function spawnCone(color) {
+        state.entities.push({
+            kind: 'cone',
+            color,
+            u: 0.26 + Math.random() * 0.24,
+            v: 0.30 + Math.random() * 0.40,
+            route: []
+        });
+        selectTool('move');
+        drawScene();
+    }
+
+    function spawnBall() {
+        state.entities.push({
+            kind: 'ball',
+            u: 0.35,
+            v: 0.50,
+            route: []
+        });
+        selectTool('move');
+        drawScene();
+    }
+
+    function toggleRouteRecording() {
+        state.isRecordingRoute = !state.isRecordingRoute;
+        document.getElementById('btn-rec-route').classList.toggle('active', state.isRecordingRoute);
+        if (state.isRecordingRoute) {
+            selectTool('move');
+            setStatus('ROTA ÇİZ AKTİF: Oyuncuyu parmağınızla sürükleyerek hareket rotasını kaydedin.');
+        } else {
+            setStatus('Rota kaydı tamamlandı.');
+        }
+    }
+
+    function toggleRouteWavyMode() {
+        state.routeWavyStyle = !state.routeWavyStyle;
+        document.getElementById('lbl-wavy').textContent = state.routeWavyStyle ? 'KIVRIM' : 'DÜZ';
+        document.getElementById('btn-wavy-mode').classList.toggle('active-blue', state.routeWavyStyle);
+    }
+
+    function cycleAnimationSpeed() {
+        state.speedIdx = (state.speedIdx + 1) % state.speeds.length;
+        const sp = state.speeds[state.speedIdx];
+        document.getElementById('lbl-speed').textContent = sp.label;
+        setStatus(`Animasyon Hızı: ${sp.label}`);
+    }
+
+    function toggleAnimationPlay() {
+        if (state.isPlaying) {
+            stopAnimation();
+            return;
+        }
+        const movers = state.entities.filter(e => e.route && e.route.length > 1);
+        if (movers.length === 0) {
+            setStatus('Önce "ROTA" ile bir oyuncuyu sürükleyin veya "SLALOM DRİL"e basın!');
+            return;
+        }
+        if (state.isRecordingRoute) toggleRouteRecording();
+
+        state.isPlaying = true;
+        document.getElementById('play-icon').className = 'fa-solid fa-pause';
+        document.getElementById('play-lbl').textContent = 'DURDUR';
+
+        const baseMs = 2700;
+        const t0 = performance.now();
+
+        function step(now) {
+            if (!state.isPlaying) return;
+            const mult = state.speeds[state.speedIdx].mult;
+            const dur = baseMs / mult;
+            const prog = ((now - t0) % dur) / dur;
+
+            movers.forEach(ent => {
+                const r = ent.route;
+                const exact = prog * (r.length - 1);
+                const idx = Math.floor(exact);
+                const f = exact - idx;
+                const pA = r[idx];
+                const pB = r[Math.min(r.length - 1, idx + 1)];
+                ent.u = pA.u + (pB.u - pA.u) * f;
+                ent.v = pA.v + (pB.v - pA.v) * f;
+
+                if (ent.linkedBall) {
+                    ent.linkedBall.u = ent.u + 0.014;
+                    ent.linkedBall.v = ent.v - 0.032;
+                }
+            });
+
+            drawScene();
+            state.animFrameId = requestAnimationFrame(step);
+        }
+
+        state.animFrameId = requestAnimationFrame(step);
+    }
+
+    function stopAnimation() {
+        state.isPlaying = false;
+        if (state.animFrameId) cancelAnimationFrame(state.animFrameId);
+        document.getElementById('play-icon').className = 'fa-solid fa-play';
+        document.getElementById('play-lbl').textContent = 'OYNAT';
+    }
+
+    function resetAnimationPositions() {
+        stopAnimation();
+        state.entities.forEach(ent => {
+            if (ent.route && ent.route.length > 0) {
+                ent.u = ent.route[0].u;
+                ent.v = ent.route[0].v;
+                if (ent.linkedBall) {
+                    ent.linkedBall.u = ent.u + 0.015;
+                    ent.linkedBall.v = ent.v - 0.035;
+                }
+            }
+        });
+        drawScene();
+        setStatus('Oyuncular başlangıç noktasına döndü.');
+    }
+
+    /********************************************************************
+     * 8. COLLAPSIBLE, DRAGGABLE PILLS & FULLSCREEN TASKBAR CONTROLS
+     ********************************************************************/
+    function togglePillCollapse(pillId, iconId) {
+        const pill = document.getElementById(pillId);
+        const icon = document.getElementById(iconId);
+        const isCollapsed = pill.classList.toggle('collapsed');
+        icon.className = isCollapsed ? 'fa-solid fa-plus' : 'fa-solid fa-minus';
+    }
+
+    function collapseBothPills() {
+        ['pill-top', 'pill-bottom'].forEach((id, i) => {
+            const pill = document.getElementById(id);
+            const icon = document.getElementById(i === 0 ? 'top-collapse-icon' : 'bot-collapse-icon');
+            pill.classList.add('collapsed');
+            icon.className = 'fa-solid fa-plus';
+        });
+        toggleSettingsPopover();
+        setStatus('Menüler simge durumuna küçültüldü. [+] simgesine dokunarak açabilirsiniz.');
+    }
+
+    function resetPillPositions() {
+        const topPill = document.getElementById('pill-top');
+        const botPill = document.getElementById('pill-bottom');
+
+        topPill.style.left = '50%';
+        topPill.style.top = 'var(--top-safe)';
+        topPill.style.bottom = 'auto';
+        topPill.style.transform = 'translateX(-50%) scale(var(--ui-scale))';
+        topPill.classList.remove('collapsed');
+        document.getElementById('top-collapse-icon').className = 'fa-solid fa-minus';
+
+        botPill.style.left = '50%';
+        botPill.style.top = 'auto';
+        botPill.style.bottom = 'var(--bottom-safe)';
+        botPill.style.transform = 'translateX(-50%) scale(var(--ui-scale))';
+        botPill.classList.remove('collapsed');
+        document.getElementById('bot-collapse-icon').className = 'fa-solid fa-minus';
+
+        toggleSettingsPopover();
+    }
+
+    async function toggleImmersiveFullscreen() {
+        try {
+            if (!document.fullscreenElement) {
+                await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
+                document.getElementById('fs-icon').className = 'fa-solid fa-compress';
+                setStatus('Tam Ekran aktif edildi.');
+            } else {
+                await document.exitFullscreen();
+                document.getElementById('fs-icon').className = 'fa-solid fa-expand';
+            }
+        } catch (err) {
+            setStatus('Boyut ayarlarından alt menü yüksekliğini görev çubuğu üstüne ayarlayabilirsiniz.');
+        }
+    }
+
+    function makePillDraggable(pillEl, handleEl) {
+        let dragging = false;
+        let offsetX = 0, offsetY = 0;
+
+        handleEl.addEventListener('pointerdown', (e) => {
+            e.stopPropagation();
+            handleEl.setPointerCapture(e.pointerId);
+            const rect = pillEl.getBoundingClientRect();
+            dragging = true;
+            offsetX = e.clientX - rect.left;
+            offsetY = e.clientY - rect.top;
+            pillEl.style.transformOrigin = 'top left';
+            pillEl.style.transform = `scale(var(--ui-scale))`;
+            pillEl.style.left = `${rect.left}px`;
+            pillEl.style.top  = `${rect.top}px`;
+            pillEl.style.bottom = 'auto';
+        });
+
+        handleEl.addEventListener('pointermove', (e) => {
+            if (!dragging) return;
+            e.stopPropagation();
+            const nx = Math.max(4, Math.min(window.innerWidth - 70, e.clientX - offsetX));
+            const ny = Math.max(4, Math.min(window.innerHeight - 36, e.clientY - offsetY));
+            pillEl.style.left = `${nx}px`;
+            pillEl.style.top  = `${ny}px`;
+        });
+
+        handleEl.addEventListener('pointerup', (e) => {
+            dragging = false;
+            handleEl.releasePointerCapture(e.pointerId);
+        });
+    }
+
+    function setBoardMode(mode) {
+        state.boardMode = mode;
+        document.getElementById('btn-mode-3d').classList.toggle('active', mode === '3d');
+        document.getElementById('btn-mode-2d').classList.toggle('active', mode === '2d');
+        drawScene();
+    }
+
+    function toggleCourtOrientation() {
+        state.manualOrient = true;
+        state.orientation = state.orientation === 'horizontal' ? 'vertical' : 'horizontal';
+        syncOrientButton();
+        drawScene();
+    }
+
+    function syncOrientButton() {
+        const isH = state.orientation === 'horizontal';
+        document.getElementById('orient-lbl').textContent = isH ? 'YATAY' : 'DİKEY';
+        document.getElementById('orient-icon').className = isH
+            ? 'fa-solid fa-arrows-left-right'
+            : 'fa-solid fa-arrows-up-down';
+    }
+
+    function cycleCourtTheme() {
+        if (state.boardMode === '3d') {
+            setBoardMode('2d');
+        } else {
+            state.themeIdx = (state.themeIdx + 1) % state.themes2D.length;
+        }
+        document.getElementById('theme-lbl').textContent = state.themes2D[state.themeIdx].name;
+        drawScene();
+    }
+
+    function selectTool(t) {
+        state.tool = t;
+        state.pendingPrScreenPoint = null;
+        document.querySelectorAll('#pill-bottom [data-tool]').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.tool === t);
+        });
+    }
+
+    function undoLastAction() {
+        state.pendingPrScreenPoint = null;
+        if (state.strokes.length > 0) {
+            state.strokes.pop();
+            drawScene();
+        }
+    }
+
+    function clearDrawingsAndRoutes() {
+        stopAnimation();
+        state.strokes = [];
+        state.pendingPrScreenPoint = null;
+        state.entities.forEach(e => { e.route = []; });
+        drawScene();
+        setStatus('Çizimler ve rotalar temizlendi.');
+    }
+
+    function toggleSettingsPopover() {
+        const pop = document.getElementById('settings-popover');
+        pop.style.display = pop.style.display === 'block' ? 'none' : 'block';
+    }
+
+    function updateUiScale(val) {
+        document.documentElement.style.setProperty('--ui-scale', val);
+        document.getElementById('lbl-ui-scale').textContent = `${Math.round(val * 100)}%`;
+    }
+
+    function updateTokenScale(val) {
+        state.tokenScale = parseFloat(val);
+        document.getElementById('lbl-token-scale').textContent = `${Math.round(val * 100)}%`;
+        drawScene();
+    }
+
+    function updateStrokeScale(val) {
+        state.strokeScale = parseFloat(val);
+        document.getElementById('lbl-stroke-scale').textContent = `${Math.round(val * 100)}%`;
+        drawScene();
+    }
+
+    function updateBottomSafe(px) {
+        document.documentElement.style.setProperty('--bottom-safe', `${px}px`);
+        document.getElementById('lbl-bot-safe').textContent = `${px}px`;
+        const botPill = document.getElementById('pill-bottom');
+        botPill.style.top = 'auto';
+        botPill.style.bottom = `${px}px`;
+    }
+
+    function setStatus(txt) {
+        document.getElementById('status-text').textContent = txt;
+    }
+
+    function handleViewportResize() {
+        if (!state.manualOrient) {
+            state.orientation = window.innerWidth >= window.innerHeight ? 'horizontal' : 'vertical';
+            syncOrientButton();
+        }
+        drawScene();
+    }
+
+    window.addEventListener('load', () => {
+        makePillDraggable(document.getElementById('pill-top'), document.getElementById('top-drag-handle'));
+        makePillDraggable(document.getElementById('pill-bottom'), document.getElementById('bot-drag-handle'));
+        handleViewportResize();
+        loadSlalomDrillPreset();
+    });
+
+    window.addEventListener('resize', handleViewportResize);
+</script>
+</body>
+</html>
+```
